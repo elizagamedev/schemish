@@ -21,8 +21,10 @@ namespace Schemish {
 
     private static Dictionary<string, Symbol>? _interned = null;
 
+    private string _string;
+
     private Symbol(string str) {
-      AsString = str;
+      _string = str;
     }
 
     public static Symbol If => Intern("if");
@@ -51,29 +53,8 @@ namespace Schemish {
 
     public static Symbol Eof => Intern("#<eof>");
 
-    public string AsString { get; private init; }
-
-    public static bool operator ==(Symbol? lhs, Symbol? rhs) {
-      if (lhs is null) {
-        if (rhs is null) {
-          return true;
-        }
-        return false;
-      }
-      return lhs.Equals(rhs);
-    }
-
-    public static bool operator !=(Symbol? lhs, Symbol? rhs) {
-      if (lhs is null) {
-        if (rhs is null) {
-          return false;
-        }
-        return true;
-      }
-      return !lhs.Equals(rhs);
-    }
-
     public static Symbol Intern(string sym) {
+      sym = sym.ToUpperInvariant();
       if (_interned is null) {
         _interned = new Dictionary<string, Symbol>();
       }
@@ -86,11 +67,11 @@ namespace Schemish {
     }
 
     public override string ToString() {
-      return AsString;
+      return _string;
     }
 
     public override int GetHashCode() {
-      return AsString.GetHashCode();
+      return _string.GetHashCode();
     }
 
     public bool Equals(Symbol? other) {
@@ -100,7 +81,7 @@ namespace Schemish {
       if (ReferenceEquals(this, other)) {
         return true;
       }
-      return AsString == other.AsString;
+      return _string == other._string;
     }
 
     public override bool Equals(object? obj) {

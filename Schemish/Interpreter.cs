@@ -17,9 +17,12 @@ namespace Schemish {
     /// </summary>
     /// <param name="environmentInitializers">Array of environment initializers.</param>
     /// <param name="fsAccessor">The file system accessor.</param>
+    /// <param name="textualOutputPort">The textual output port interface.</param>
     public Interpreter(IEnumerable<CreateSymbolTable>? environmentInitializers = null,
-                       IFileSystemAccessor? fsAccessor = null) {
+                       IFileSystemAccessor? fsAccessor = null,
+                       ITextualOutputPort? textualOutputPort = null) {
       FileSystemAccessor = fsAccessor ?? new DisabledFileSystemAccessor();
+      TextualOutputPort = textualOutputPort ?? new DisabledTextualOutputPort();
 
       // populate an empty environment for the initializer to potentially work with
       Environment = Environment.CreateEmpty();
@@ -39,6 +42,8 @@ namespace Schemish {
     public Environment Environment { get; private init; }
 
     public IFileSystemAccessor FileSystemAccessor { get; private init; }
+
+    public ITextualOutputPort TextualOutputPort { get; private init; }
 
     /// <summary>
     /// Validates and expands the input s-expression.
@@ -99,7 +104,7 @@ namespace Schemish {
                         .ToList();
 
           if (args.Count == 2) {
-            newArgs.Add(new Cons.Floating(null, Symbol.Quote));
+            newArgs.Add(new Cons.Floating(null, Unspecified.Instance));
           }
 
           return new Cons(appliedRef.Location, Symbol.If, Cons.CreateFromFloating(newArgs));

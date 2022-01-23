@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Schemish", "Schemish\Schemi
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Repl", "Repl\Repl.csproj", "{8FF90A80-486E-47DE-8C9A-AEC33A241090}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tests", "Tests\Tests.csproj", "{216BD1C3-26F4-46FF-B2D8-4E2546912654}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -24,5 +26,9 @@ Global
 		{8FF90A80-486E-47DE-8C9A-AEC33A241090}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8FF90A80-486E-47DE-8C9A-AEC33A241090}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8FF90A80-486E-47DE-8C9A-AEC33A241090}.Release|Any CPU.Build.0 = Release|Any CPU
+		{216BD1C3-26F4-46FF-B2D8-4E2546912654}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{216BD1C3-26F4-46FF-B2D8-4E2546912654}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{216BD1C3-26F4-46FF-B2D8-4E2546912654}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{216BD1C3-26F4-46FF-B2D8-4E2546912654}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -47,9 +48,23 @@ namespace Schemish {
         new NativeProcedure(Symbol.Intern("car"), CarImpl),
         new NativeProcedure(Symbol.Intern("cdr"), CdrImpl),
         new NativeProcedure(Symbol.Intern("cons"), ConsImpl),
-
         new NativeProcedure(Symbol.Append, AppendImpl),
-        new NativeProcedure(Symbol.Intern("assert"), AssertImpl),
+        new NativeProcedure(Symbol.Intern("reverse"), ReverseImpl),
+
+        new NativeProcedure(Symbol.Intern("string-length"), StringLengthImpl),
+        new NativeProcedure(Symbol.Intern("string-append"), StringAppendImpl),
+
+        new NativeProcedure(Symbol.Intern("string->number"), StringToNumberImpl),
+        new NativeProcedure(Symbol.Intern("number->string"), NumberToStringImpl),
+
+        new NativeProcedure(Symbol.Intern("display"),
+                            (args, stack) => DisplayImpl(interpreter, args)),
+        new NativeProcedure(Symbol.Intern("write"),
+                            (args, stack) => WriteImpl(interpreter, args)),
+        new NativeProcedure(Symbol.Intern("newline"),
+                            (args, stack) => NewlineImpl(interpreter, args)),
+
+        new NativeProcedure(Symbol.Intern("error"), ErrorImpl),
         new NativeProcedure(Symbol.Intern("load"), (args, stack) => LoadImpl(interpreter, args)),
     };
 
@@ -196,7 +211,7 @@ namespace Schemish {
 
       foreach (object? car in args.AsCars().Skip(1)) {
         double val = ConvertToDouble(car);
-        if (val >= target) {
+        if (val <= target) {
           return false;
         }
         target = val;
@@ -214,7 +229,7 @@ namespace Schemish {
 
       foreach (object? car in args.AsCars().Skip(1)) {
         double val = ConvertToDouble(car);
-        if (val > target) {
+        if (val < target) {
           return false;
         }
         target = val;
@@ -232,7 +247,7 @@ namespace Schemish {
 
       foreach (object? car in args.AsCars().Skip(1)) {
         double val = ConvertToDouble(car);
-        if (val <= target) {
+        if (val >= target) {
           return false;
         }
         target = val;
@@ -250,7 +265,7 @@ namespace Schemish {
 
       foreach (object? car in args.AsCars().Skip(1)) {
         double val = ConvertToDouble(car);
-        if (val < target) {
+        if (val > target) {
           return false;
         }
         target = val;
@@ -470,22 +485,101 @@ namespace Schemish {
       return head;
     }
 
-    private static object? AssertImpl(Cons? args, List<SourceLocation> stack) {
+    private static object? ReverseImpl(Cons? args, List<SourceLocation> stack) {
+      if (args is null || args.Count != 1) {
+        throw SchemishException.IncorrectArity(args?.Count ?? 0, "1");
+      }
+
+      return Cons.CreateFromCars(EnsureIsList(args.Car).AsCars().Reverse());
+    }
+
+    private static object? StringLengthImpl(Cons? args, List<SourceLocation> stack) {
+      if (args is null || args.Count != 1) {
+        throw SchemishException.IncorrectArity(args?.Count ?? 0, "1");
+      }
+
+      string str = EnsureIsString(args.Car);
+      return str.Length;
+    }
+
+    private static object? StringAppendImpl(Cons? args, List<SourceLocation> stack) {
+      return string.Join(string.Empty, args.AsCars().Select(x => EnsureIsString(x)));
+    }
+
+    private static object? StringToNumberImpl(Cons? args, List<SourceLocation> stack) {
       if (args is null || args.Count is not 1 and not 2) {
         throw SchemishException.IncorrectArity(args?.Count ?? 0, "1 or 2");
       }
 
       var argsEnum = args.AsCars().GetEnumerator();
-      bool pred = ConvertToBool(argsEnum.Take());
-
-      if (!pred) {
-        string msg = "Assertion failed";
-        if (args.Count > 1) {
-          msg += ": " + PrintExpr(argsEnum.Take());
-        }
-        throw new SchemishException(msg);
+      string str = EnsureIsString(argsEnum.Take());
+      int radix;
+      if (args.Count == 2) {
+        radix = EnsureIsInt(argsEnum.Take());
+      } else {
+        radix = 10;
       }
+      return Convert.ToInt32(str, radix);
+    }
+
+    private static object? NumberToStringImpl(Cons? args, List<SourceLocation> stack) {
+      if (args is null || args.Count is not 1 and not 2) {
+        throw SchemishException.IncorrectArity(args?.Count ?? 0, "1 or 2");
+      }
+
+      var argsEnum = args.AsCars().GetEnumerator();
+      double d = ConvertToDouble(argsEnum.Take());
+      int radix;
+      if (args.Count == 2) {
+        radix = EnsureIsInt(argsEnum.Take());
+      } else {
+        radix = 10;
+      }
+      if (d % 1 == 0) {
+        return Convert.ToString((int)d, radix);
+      } else if (radix == 10) {
+        return d.ToString();
+      } else {
+        throw new SchemishException(
+            "Converting fractional value to a non-base 10 string not implemented.");
+      }
+    }
+
+    private static object? DisplayImpl(Interpreter interpreter, Cons? args) {
+      if (args is null || args.Count != 1) {
+        throw SchemishException.IncorrectArity(args?.Count ?? 0, "1");
+      }
+      interpreter.TextualOutputPort.Display(ConvertToString(args.Car));
       return Unspecified.Instance;
+    }
+
+    private static object? WriteImpl(Interpreter interpreter, Cons? args) {
+      if (args is null || args.Count != 1) {
+        throw SchemishException.IncorrectArity(args?.Count ?? 0, "1");
+      }
+      interpreter.TextualOutputPort.Display(PrintExpr(args.Car));
+      return Unspecified.Instance;
+    }
+
+    private static object? NewlineImpl(Interpreter interpreter, Cons? args) {
+      if (args is not null) {
+        throw SchemishException.IncorrectArity(args.Count, "0");
+      }
+      interpreter.TextualOutputPort.Newline();
+      return Unspecified.Instance;
+    }
+
+    private static object? ErrorImpl(Cons? args, List<SourceLocation> stack) {
+      if (args is null) {
+        throw SchemishException.IncorrectArity(args?.Count ?? 0, "at least 1");
+      }
+
+      string message = ConvertToString(args.Car);
+      if (args.Count > 1) {
+        message += " " + string.Join(' ', args.AsCars().Skip(1));
+      }
+
+      throw new SchemishException($"ERROR: {message}");
     }
 
     private static object? LoadImpl(Interpreter interpreter, Cons? args) {

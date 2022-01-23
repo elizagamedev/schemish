@@ -24,7 +24,7 @@ namespace Schemish {
     }
 
     public override string ToString() {
-      string id = Identifier?.AsString ?? "noname";
+      string id = Identifier?.ToString() ?? "noname";
       return $"#<NativeProcedure:{id}>";
     }
   }

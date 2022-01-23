@@ -69,13 +69,19 @@
           (bodies (cdr args)))
       `(if ,test (begin ,@bodies)))))
 
+(define-macro unless
+  (lambda args
+    (let ((test (car args))
+          (bodies (cdr args)))
+      `(if (not ,test) (begin ,@bodies)))))
+
 (define-macro while
   (lambda args
     (let ((test (car args))
           (body (cdr args)))
       `(begin
          (define (_loop)
-           (if ,cond (begin ,@body (_loop))))
+           (if ,test (begin ,@body (_loop))))
          (_loop)))))
 
 (define-macro (push item place)
