@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using static Schemish.Utils;
 
 // Disable "must end in Collection"
@@ -55,28 +56,28 @@ namespace Schemish {
       return !lhs.Equals(rhs);
     }
 
-    public static Cons? CreateFromCons(IEnumerable<Cons> enumerable) {
-      Cons? head = null;
+    public static Cons? CreateFromCons(IEnumerable<Cons> enumerable, object? tail = null) {
+      object? head = tail;
       foreach (var cons in Enumerable.Reverse(enumerable)) {
         head = new Cons(cons.Location, cons.Car, head);
       }
-      return head;
+      return (Cons?)head;
     }
 
-    public static Cons? CreateFromCars(IEnumerable<object?> enumerable) {
-      Cons? head = null;
+    public static Cons? CreateFromCars(IEnumerable<object?> enumerable, object? tail = null) {
+      object? head = tail;
       foreach (object? car in Enumerable.Reverse(enumerable)) {
         head = new Cons(null, car, head);
       }
-      return head;
+      return (Cons?)head;
     }
 
-    public static Cons? CreateFromFloating(IEnumerable<Floating> enumerable) {
-      Cons? head = null;
+    public static Cons? CreateFromFloating(IEnumerable<Floating> enumerable, object? tail = null) {
+      object? head = tail;
       foreach (var cons in Enumerable.Reverse(enumerable)) {
         head = new Cons(cons.Location, cons.Car, head);
       }
-      return head;
+      return (Cons?)head;
     }
 
     public IEnumerator<object?> GetEnumerator() {
@@ -114,8 +115,23 @@ namespace Schemish {
     }
 
     public override string ToString() {
-      string printExpr = string.Join(" ", this.AsCars().Select(x => PrintExpr(x)));
-      return $"({printExpr})";
+      var builder = new StringBuilder("(");
+      object? head = this;
+      while (head is not null) {
+        if (head is Cons cons) {
+          if (!ReferenceEquals(head, this)) {
+            builder.Append(' ');
+          }
+          builder.Append(PrintExpr(cons.Car));
+          head = cons.Cdr;
+        } else {
+          builder.Append(" . ");
+          builder.Append(PrintExpr(head));
+          break;
+        }
+      }
+      builder.Append(')');
+      return builder.ToString();
     }
 
     public record Floating(SourceLocation? Location, object? Car);

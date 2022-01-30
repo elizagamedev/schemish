@@ -3,33 +3,6 @@ using Schemish.Exceptions;
 
 namespace Schemish {
   internal static class InternalUtils {
-    public static bool ConvertToBool(object? val) {
-      if (val is bool b) {
-        return b;
-      }
-      return true;
-    }
-
-    public static int ConvertToInt(object? val) {
-      return val switch {
-        int i => i,
-        double f => (int)f,
-        _ => throw SchemishException.IllegalConversion(val, "number"),
-      };
-    }
-
-    public static double ConvertToDouble(object? val) {
-      return val switch {
-        int i => i,
-        double f => f,
-        _ => throw SchemishException.IllegalConversion(val, "number"),
-      };
-    }
-
-    public static string ConvertToString(object? val) {
-      return val?.ToString() ?? "()";
-    }
-
     public static int EnsureIsInt(object? val) {
       if (val is int i) {
         return i;

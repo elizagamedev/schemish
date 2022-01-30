@@ -25,7 +25,7 @@ namespace Schemish {
           _location = _location with {
             Line = _location.Line + 1,
             Column = 0,
-            Text = _line,
+            Text = _line ?? string.Empty,
           };
         }
 

@@ -405,7 +405,7 @@ namespace Schemish {
       if (procObject is not ICallable proc) {
         throw SchemishException.WrongType(procObject, "procedure");
       }
-      Cons? procArgs = EnsureIsList(args.Cdr);
+      var procArgs = (Cons?)AppendImpl((Cons?)args.Cdr, stack);
       return proc.Call(procArgs, stack);
     }
 
@@ -469,16 +469,17 @@ namespace Schemish {
         return null;
       }
       if (args.Cdr is null) {
-        return args;
+        return args.Car;
       }
 
       var joined = new List<Cons>();
-      object head = args;
-      while (head is Cons cons && cons.Cdr is not null) {
-        joined.AddRange(EnsureIsList(cons.Car).AsCons());
-        head = cons.Cdr;
+      Cons cdr = args;
+      while (cdr.Cdr is not null) {
+        joined.AddRange(EnsureIsList(cdr.Car).AsCons());
+        cdr = (Cons)cdr.Cdr;
       }
-      foreach (var cons in joined) {
+      Cons? head = EnsureIsList(cdr.Car);
+      foreach (var cons in Enumerable.Reverse(joined)) {
         head = new Cons(cons.Location, cons.Car, head);
       }
 

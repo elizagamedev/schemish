@@ -25,7 +25,7 @@ namespace Schemish {
         if (TryGetValue(sym, out object? val)) {
           return val;
         } else {
-          throw new KeyNotFoundException($"Symbol not defined: {sym}");
+          throw new SchemishException($"Symbol not defined: {sym}.");
         }
       }
 

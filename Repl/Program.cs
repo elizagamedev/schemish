@@ -1,7 +1,9 @@
 using Schemish;
 using static Schemish.Utils;
 
-var interpreter = new Interpreter(textualOutputPort: new ConsoleTextualOutputPort());
+var interpreter = new Interpreter(
+    fsAccessor: new ReadOnlyFileSystemAccessor(),
+    textualOutputPort: new ConsoleTextualOutputPort());
 
 // Load any files listed in the command line args.
 foreach (string fileName in args) {

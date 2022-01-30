@@ -357,6 +357,10 @@ namespace Schemish {
             }
           }
         } catch (SchemishException e) {
+          // TODO: Adding the applied ref to the stack may not be correct in all cases.
+          if (appliedRef.Location is not null) {
+            stack.Add(appliedRef.Location);
+          }
           throw new RuntimeErrorException($"Error during evaluation: {e.Message}", e, stack);
         }
       }
@@ -409,23 +413,26 @@ namespace Schemish {
           var nextToken = port.NextToken();
           if (nextToken.String == ")") {
             return Cons.CreateFromFloating(list);
+          } else if (nextToken.String == ".") {
+            object? tail = ReadNext(port, port.NextToken());
+            var endToken = port.NextToken();
+            if (endToken.String != ")") {
+              throw new SyntaxErrorException("expected ) after dotted pair", token.Location);
+            }
+            return Cons.CreateFromFloating(list, tail);
           } else {
             list.Add(new Cons.Floating(nextToken.Location, ReadNext(port, nextToken)));
           }
         }
-      }
-
-      if (token.String == ")") {
+      } else if (token.String == ")") {
         throw new SyntaxErrorException("unexpected )", token.Location);
-      }
-
-      if (Symbol.QuotesMap.TryGetValue(token.String, out var quote)) {
+      } else if (Symbol.QuotesMap.TryGetValue(token.String, out var quote)) {
         var nextToken = port.NextToken();
         object? quoted = ReadNext(port, nextToken);
         return new Cons(token.Location, quote, new Cons(nextToken.Location, quoted, null));
+      } else {
+        return token.Parse();
       }
-
-      return token.Parse();
     }
 
     private static object? ExpandQuasiquote(object? cdr) {

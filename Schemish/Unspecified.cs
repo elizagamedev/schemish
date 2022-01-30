@@ -5,7 +5,7 @@ namespace Schemish {
     private Unspecified() { }
 
     public override string ToString() {
-      return "<unspecified>";
+      return "#<unspecified>";
     }
   }
 }

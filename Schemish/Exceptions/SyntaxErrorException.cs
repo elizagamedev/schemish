@@ -8,12 +8,12 @@ namespace Schemish.Exceptions {
         : base(message) { }
 
     public SyntaxErrorException(string message, SourceLocation? location)
-        : base($"{location}: {message}") { }
+        : base(location is null ? message : $"{location}: {message}") { }
 
     public SyntaxErrorException(string message, Exception innerException)
         : base(message, innerException) { }
 
     public SyntaxErrorException(string message, Exception innerException, SourceLocation? location)
-        : base($"{location}: {message}", innerException) { }
+        : base(location is null ? message : $"{location}: {message}", innerException) { }
   }
 }
