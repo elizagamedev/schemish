@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Schemish.Exceptions;
-using static Schemish.InternalUtils;
+using static Schemish.Utils;
 
 namespace Schemish {
   /// <summary>
@@ -9,22 +9,31 @@ namespace Schemish {
   /// </summary>
   public sealed class Environment {
     private readonly IDictionary<Symbol, object?> _store;
-
-    /// <summary>
-    /// The enclosing environment. For top level env, this is null.
-    /// </summary>
     private readonly Environment? _outer;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Environment"/> class.
+    /// </summary>
+    /// <param name="env">The backing store of the environment.</param>
+    /// <param name="outer">The enclosing environment.</param>
     public Environment(IDictionary<Symbol, object?> env, Environment? outer) {
       _store = env;
       _outer = outer;
     }
 
+    /// <summary>
+    /// Gets or sets the value of the specified variable in the environment.
+    /// </summary>
+    /// <param name="sym">The variable identifier.</param>
     public object? this[Symbol sym] {
       get => _store[sym];
       set => _store[sym] = value;
     }
 
+    /// <summary>
+    /// Creates an empty environment.
+    /// </summary>
+    /// <returns>The empty environment.</returns>
     public static Environment CreateEmpty() {
       return new Environment(new Dictionary<Symbol, object?>(), outer: null);
     }
@@ -35,7 +44,7 @@ namespace Schemish {
     /// </summary>
     /// <param name="sym">The the symbol to find.</param>
     /// <param name="val">The value of the symbol to find.</param>
-    /// <returns>if the symbol's value could be found.</returns>
+    /// <returns>If the symbol's value could be found.</returns>
     public bool TryGetValue(Symbol sym, out object? val) {
       var env = TryFindContainingEnv(sym);
       if (env is not null) {
@@ -51,7 +60,7 @@ namespace Schemish {
     /// Attempts to find the env that actually defines the symbol.
     /// </summary>
     /// <param name="sym">The symbol to find.</param>
-    /// <returns>the env that defines the symbol.</returns>
+    /// <returns>The env that defines the symbol.</returns>
     public Environment? TryFindContainingEnv(Symbol sym) {
       if (_store.TryGetValue(sym, out _)) {
         return this;
@@ -64,8 +73,17 @@ namespace Schemish {
       return null;
     }
 
+    /// <summary>
+    /// Creates a new environment from the given variables and values.
+    /// </summary>
+    /// <param name="names">A <see cref="Symbol"/> or <see cref="Cons"/> list of
+    /// <see cref="Symbol"/>s representing the variable names.</param>
+    /// <param name="values">A <see cref="Cons"/> list of variable values corresponding to each
+    /// name.</param>
+    /// <param name="outer">The enclosing environment.</param>
+    /// <returns>The new environment.</returns>
     internal static Environment FromVariablesAndValues(object? names, Cons? values,
-                                                      Environment outer) {
+                                                       Environment outer) {
       Dictionary<Symbol, object?> env;
       if (names is Symbol symbol) {
         env = new Dictionary<Symbol, object?>() { { symbol, values } };
@@ -75,7 +93,8 @@ namespace Schemish {
         int valuesCount = values?.Count ?? 0;
         if (namesCount != valuesCount) {
           throw new SchemishException(
-              $"Names and values lists do not match in length ({namesCount} and {valuesCount} respectively).");
+              $"Names and values lists do not match in length"
+              + " ({namesCount} and {valuesCount} respectively).");
         }
         // Ensure the list is made only of symbols.
         var nonSymbols = namesList.AsCars().Where(x => x is not Symbol);

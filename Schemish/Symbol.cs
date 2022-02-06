@@ -6,11 +6,75 @@ namespace Schemish {
   /// <summary>
   /// Scheme symbol.
   /// </summary>
-  /// <remarks>
-  /// Symbols are interned so that symbols with the same name are actually of the same symbol object
-  /// instance.
-  /// </remarks>
   public sealed class Symbol : IEquatable<Symbol> {
+    /// <summary>
+    /// Scheme <c>if</c> symbol instance.
+    /// </summary>
+    public static readonly Symbol If = Intern("if");
+
+    /// <summary>
+    /// Scheme <c>set</c> symbol instance.
+    /// </summary>
+    public static readonly Symbol Set = Intern("set!");
+
+    /// <summary>
+    /// Scheme <c>define</c> symbol instance.
+    /// </summary>
+    public static readonly Symbol Define = Intern("define");
+
+    /// <summary>
+    /// Scheme <c>lambda</c> symbol instance.
+    /// </summary>
+    public static readonly Symbol Lambda = Intern("lambda");
+
+    /// <summary>
+    /// Scheme <c>begin</c> symbol instance.
+    /// </summary>
+    public static readonly Symbol Begin = Intern("begin");
+
+    /// <summary>
+    /// Scheme <c>define-macro</c> symbol instance.
+    /// </summary>
+    public static readonly Symbol DefineMacro = Intern("define-macro");
+
+    /// <summary>
+    /// Scheme <c>append</c> symbol instance.
+    /// </summary>
+    public static readonly Symbol Append = Intern("append");
+
+    /// <summary>
+    /// Scheme <c>cons</c> symbol instance.
+    /// </summary>
+    public static readonly Symbol Cons = Intern("cons");
+
+    /// <summary>
+    /// Scheme <c>quote</c> symbol instance.
+    /// </summary>
+    public static readonly Symbol Quote = Intern("quote");
+
+    /// <summary>
+    /// Scheme <c>quasiquote</c> symbol instance.
+    /// </summary>
+    public static readonly Symbol QuasiQuote = Intern("quasiquote");
+
+    /// <summary>
+    /// Scheme <c>unquote</c> symbol instance.
+    /// </summary>
+    public static readonly Symbol Unquote = Intern("unquote");
+
+    /// <summary>
+    /// Scheme <c>unquote-splicing</c> symbol instance.
+    /// </summary>
+    public static readonly Symbol UnquoteSplicing = Intern("unquote-splicing");
+
+    /// <summary>
+    /// Scheme <c>#&lt;eof&gt;</c> symbol instance.
+    /// </summary>
+    public static readonly Symbol Eof = Intern("#<eof>");
+
+    /// <summary>
+    /// A map of quote literals to their corresponding Scheme symbols.
+    /// </summary>
     public static readonly ReadOnlyDictionary<string, Symbol> QuotesMap =
         new(new Dictionary<string, Symbol>() {
           { "'", Quote },
@@ -27,32 +91,11 @@ namespace Schemish {
       _string = str;
     }
 
-    public static Symbol If => Intern("if");
-
-    public static Symbol Set => Intern("set!");
-
-    public static Symbol Define => Intern("define");
-
-    public static Symbol Lambda => Intern("lambda");
-
-    public static Symbol Begin => Intern("begin");
-
-    public static Symbol DefineMacro => Intern("define-macro");
-
-    public static Symbol Append => Intern("append");
-
-    public static Symbol Cons => Intern("cons");
-
-    public static Symbol Quote => Intern("quote");
-
-    public static Symbol QuasiQuote => Intern("quasiquote");
-
-    public static Symbol Unquote => Intern("unquote");
-
-    public static Symbol UnquoteSplicing => Intern("unquote-splicing");
-
-    public static Symbol Eof => Intern("#<eof>");
-
+    /// <summary>
+    /// Returns a symbol interned from the given string.
+    /// </summary>
+    /// <param name="sym">The string representation of the symbol.</param>
+    /// <returns>The symbol.</returns>
     public static Symbol Intern(string sym) {
       sym = sym.ToUpperInvariant();
       if (_interned is null) {
@@ -66,14 +109,17 @@ namespace Schemish {
       return symbol;
     }
 
+    /// <inheritdoc/>
     public override string ToString() {
       return _string;
     }
 
+    /// <inheritdoc/>
     public override int GetHashCode() {
       return _string.GetHashCode();
     }
 
+    /// <inheritdoc/>
     public bool Equals(Symbol? other) {
       if (other is null) {
         return false;
@@ -84,6 +130,7 @@ namespace Schemish {
       return _string == other._string;
     }
 
+    /// <inheritdoc/>
     public override bool Equals(object? obj) {
       return Equals(obj as Symbol);
     }

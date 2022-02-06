@@ -301,11 +301,8 @@ dotnet_diagnostic.SA1513.severity = none
 # Disable "Single-line comment should be preceded by blank line".
 dotnet_diagnostic.SA1515.severity = none
 
-###########
-# OPTIONAL
-
 # Disable "File should have header".
 dotnet_diagnostic.SA1633.severity = none
 
-# Disable "Elements should be documented".
-dotnet_diagnostic.SA1600.severity = none
+# Disable "The file header copyright text should match the copyright text from the settings."
+dotnet_diagnostic.SA1636.severity = none

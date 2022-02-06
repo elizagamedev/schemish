@@ -5,17 +5,19 @@ using System.Linq;
 using System.Text;
 using Schemish.Exceptions;
 using static System.Diagnostics.Debug;
-using static Schemish.InternalUtils;
 using static Schemish.Utils;
 
 namespace Schemish {
+  /// <summary>
+  /// The Schemish interpreter.
+  /// </summary>
   public sealed class Interpreter {
     private readonly Dictionary<Symbol, Procedure> _macroTable;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="Interpreter"/> class.
     /// </summary>
-    /// <param name="environmentInitializers">Array of environment initializers.</param>
+    /// <param name="environmentInitializers">An array of environment initializers.</param>
     /// <param name="fsAccessor">The file system accessor.</param>
     /// <param name="textualOutputPort">The textual output port interface.</param>
     public Interpreter(IEnumerable<CreateSymbolTable>? environmentInitializers = null,
@@ -37,14 +39,39 @@ namespace Schemish {
       }
     }
 
+    /// <summary>
+    /// Function which creates an <see cref="IDictionary{TKey,TValue}"/> store from the given
+    /// partially-constructed <c>Interpreter</c> to be used as part of the global environment for
+    /// the interpreter.
+    /// </summary>
+    /// <param name="interpreter">The partially-constructed interpreter.</param>
+    /// <returns>The dictionary store for the global environment.</returns>
     public delegate IDictionary<Symbol, object?> CreateSymbolTable(Interpreter interpreter);
 
+    /// <summary>
+    /// Gets the global environment.
+    /// </summary>
     public Environment Environment { get; private init; }
 
+    /// <summary>
+    /// Gets the file system accessor.
+    /// </summary>
     public IFileSystemAccessor FileSystemAccessor { get; private init; }
 
+    /// <summary>
+    /// Gets the textual output port.
+    /// </summary>
     public ITextualOutputPort TextualOutputPort { get; private init; }
 
+    /// <summary>
+    /// Evaluates the content of the given text reader in the interpreter context.
+    /// </summary>
+    /// <param name="input">The <see cref="TextReader"/> to evaluate.</param>
+    /// <param name="fileName">The file name that will be shown in stack traces for this code.
+    /// </param>
+    /// <exception cref="SyntaxErrorException">A syntax error occured.</exception>
+    /// <exception cref="RuntimeErrorException">A runtime error occured.</exception>
+    /// <returns>The last evaluated s-expression in the stream.</returns>
     public object? EvaluateTextReader(TextReader input, string fileName) {
       var port = new TokenParser(input, fileName);
       object? res = Unspecified.Instance;
@@ -61,15 +88,32 @@ namespace Schemish {
       }
     }
 
+    /// <summary>
+    /// Evaluates the content of the given string in the interpreter context.
+    /// </summary>
+    /// <param name="input">The string to evaluate.</param>
+    /// <param name="fileName">The file name that will be shown in stack traces for this code.
+    /// </param>
+    /// <exception cref="SyntaxErrorException">A syntax error occured.</exception>
+    /// <exception cref="RuntimeErrorException">A runtime error occured.</exception>
+    /// <returns>The last evaluated s-expression in the string.</returns>
     public object? EvaluateString(string input, string fileName) {
       return EvaluateTextReader(new StreamReader(new MemoryStream(Encoding.UTF8.GetBytes(input))),
                                 fileName);
     }
 
-    public void DefineGlobal(Symbol sym, object val) {
-      Environment[sym] = val;
-    }
-
+    /// <summary>
+    /// Expands and validates the given s-expression.
+    /// </summary>
+    /// <param name="expression">The s-expression to expand.</param>
+    /// <param name="env">The global environment. This is used when evaluating macros.</param>
+    /// <param name="macroTable">The macros defined until now. New macros will be added by this
+    /// function as they are defined.</param>
+    /// <param name="isTopLevel">True if this function was called from the top level. This is used
+    /// to ensure that new macros are only defined at the top level.</param>
+    /// <exception cref="SyntaxErrorException">A syntax error occured.</exception>
+    /// <exception cref="RuntimeErrorException">A runtime error occured.</exception>
+    /// <returns>The expanded s-expression.</returns>
     internal static object? Expand(object? expression, Environment env,
                                    Dictionary<Symbol, Procedure> macroTable,
                                    bool isTopLevel = true) {
@@ -122,7 +166,7 @@ namespace Schemish {
                         .ToList();
 
           if (args.Count == 2) {
-            newArgs.Add(new Cons.Floating(null, Unspecified.Instance));
+            newArgs.Add(new Cons.Floating(SourceLocation.Unknown, Unspecified.Instance));
           }
 
           return new Cons(appliedRef.Location, Symbol.If, Cons.CreateFromFloating(newArgs));
@@ -162,12 +206,13 @@ namespace Schemish {
 
             var body = argsRefEnum.Take();
 
-            var lambda = new Cons(null, Symbol.Lambda,
+            var lambda = new Cons(SourceLocation.Unknown, Symbol.Lambda,
                                   new Cons(firstArgRef.Location, defArgs, body));
 
             return Expand(
                 new Cons(appliedRef.Location, applied,
-                         new Cons(nameRef.Location, nameRef.Car, new Cons(null, lambda, null))),
+                         new Cons(nameRef.Location, nameRef.Car, new Cons(SourceLocation.Unknown,
+                                                                          lambda, null))),
                 env, macroTable, isTopLevel);
           } else {
             // defining variable: ([define|define-macro] id expr)
@@ -243,7 +288,7 @@ namespace Schemish {
             singleBody = body.Car;
           } else {
             // (lambda (...) expr+
-            singleBody = new Cons(null, Symbol.Begin, body);
+            singleBody = new Cons(SourceLocation.Unknown, Symbol.Begin, body);
           }
 
           object? expandedBody = EnsureIsSpecified(Expand(singleBody, env, macroTable,
@@ -274,7 +319,18 @@ namespace Schemish {
       }
     }
 
-    internal static object? Evaluate(object? expr, Environment env, string procedureName,
+    /// <summary>
+    /// Evaluate the previously expanded and validated s-expression.
+    /// </summary>
+    /// <param name="expr">The s-expression.</param>
+    /// <param name="env">The lexical environment.</param>
+    /// <param name="callingProcedure">The string representation of the calling procedure.</param>
+    /// <param name="exprLocation">The source location of <c>expr</c>.</param>
+    /// <param name="stack">The calling procedure's call stack.</param>
+    /// <exception cref="SyntaxErrorException">A syntax error occured.</exception>
+    /// <exception cref="RuntimeErrorException">A runtime error occured.</exception>
+    /// <returns>The evaluated expression.</returns>
+    internal static object? Evaluate(object? expr, Environment env, string callingProcedure,
                                      SourceLocation exprLocation, CallStack? stack) {
       while (true) {
         if (expr is Symbol symbol) {
@@ -283,14 +339,14 @@ namespace Schemish {
           } else {
             throw new RuntimeErrorException(
                 $"Variable `{symbol}' not defined.",
-                new CallStack(procedureName, exprLocation, stack));
+                new CallStack(callingProcedure, exprLocation, stack));
           }
         }
         if (expr is not Cons appliedRef) {
           return expr;  // is a constant
         }
 
-        var newStack = new CallStack(procedureName,
+        var newStack = new CallStack(callingProcedure,
                                      appliedRef.Location,
                                      stack);
         if (!appliedRef.IsList) {
@@ -311,7 +367,7 @@ namespace Schemish {
             var testRef = argsRefEnum.Take();
             var conseqRef = argsRefEnum.Take();
             var altRef = argsRefEnum.Take();
-            object? testResult = EnsureIsSpecified(Evaluate(testRef.Car, env, procedureName,
+            object? testResult = EnsureIsSpecified(Evaluate(testRef.Car, env, callingProcedure,
                                                             testRef.Location, stack));
             var newExprRef = ConvertToBool(testResult) ? conseqRef : altRef;
             expr = newExprRef.Car;
@@ -322,7 +378,7 @@ namespace Schemish {
             var argsRefEnum = args.AsCons().GetEnumerator();
             var variable = (Symbol)argsRefEnum.Take().Car.AsNotNull();
             var valRef = argsRefEnum.Take();
-            object? result = EnsureIsSpecified(Evaluate(valRef.Car, env, procedureName,
+            object? result = EnsureIsSpecified(Evaluate(valRef.Car, env, callingProcedure,
                                                         valRef.Location, stack));
             if (result is Procedure proc) {
               env[variable] = new Procedure(variable, proc.Parameters, proc.Body, proc.Env,
@@ -342,7 +398,7 @@ namespace Schemish {
               throw new RuntimeErrorException(
                   $"Symbol {name} not defined in containing environment.", newStack);
             }
-            object? result = EnsureIsSpecified(Evaluate(valRef.Car, env, procedureName,
+            object? result = EnsureIsSpecified(Evaluate(valRef.Car, env, callingProcedure,
                                                         valRef.Location, stack));
             containingEnv[name] = result;
             return Unspecified.Instance;
@@ -360,20 +416,20 @@ namespace Schemish {
                    $"Bad begin form during eval. {PrintExpr(expr)}");
             var child = args;
             while (child.Cdr is not null) {
-              Evaluate(child.Car, env, procedureName, child.Location, stack);
+              Evaluate(child.Car, env, callingProcedure, child.Location, stack);
               child = (Cons)child.Cdr;
             }
             expr = child.Car;
             exprLocation = child.Location;
           } else {
             // A procedure call.
-            object? rawProc = EnsureIsProc(Evaluate(applied, env, procedureName,
+            object? rawProc = EnsureIsProc(Evaluate(applied, env, callingProcedure,
                                                     appliedRef.Location, stack));
 
             var procArgs = Cons.CreateFromCars(
                 args
                 .AsCons()
-                .Select(argRef => EnsureIsSpecified(Evaluate(argRef.Car, env, procedureName,
+                .Select(argRef => EnsureIsSpecified(Evaluate(argRef.Car, env, callingProcedure,
                                                              argRef.Location, stack))));
 
             if (rawProc is Procedure proc) {
@@ -383,7 +439,7 @@ namespace Schemish {
               expr = proc.Body;
               exprLocation = proc.Location;
               env = Environment.FromVariablesAndValues(proc.Parameters, procArgs, proc.Env);
-              procedureName = proc.ToString();
+              callingProcedure = proc.ToString();
               stack = newStack;
             } else if (rawProc is NativeProcedure nativeProc) {
               // Don't copy the stack here, since native procs add themselves to the stack. It's
@@ -400,9 +456,6 @@ namespace Schemish {
       }
     }
 
-    /// <summary>
-    /// Reads an S-expression from the input source.
-    /// </summary>
     private static object? Read(TokenParser port) {
       var token = port.NextToken();
       if (token.String is null) {
@@ -448,7 +501,8 @@ namespace Schemish {
     private static object? ExpandQuasiquote(object? cdr) {
       if (cdr is null || cdr is not Cons valRef) {
         // It's either a quoted nil or a dotted value; just quote it.
-        return new Cons(null, Symbol.Quote, new Cons(null, cdr, null));
+        return new Cons(SourceLocation.Unknown, Symbol.Quote,
+                        new Cons(SourceLocation.Unknown, cdr, null));
       }
 
       object? expanded;
@@ -462,9 +516,10 @@ namespace Schemish {
           if (valRef.Cdr is null) {
             return splicedRef.Car;
           } else {
-            return new Cons(null, Symbol.Append,
+            return new Cons(SourceLocation.Unknown, Symbol.Append,
                             new Cons(splicedRef.Location, splicedRef.Car,
-                                     new Cons(null, ExpandQuasiquote(valRef.Cdr), null)));
+                                     new Cons(SourceLocation.Unknown, ExpandQuasiquote(valRef.Cdr),
+                                              null)));
           }
         } else if (Symbol.Unquote.Equals(val.Car)) {
           if (val.Count != 2) {
@@ -477,11 +532,14 @@ namespace Schemish {
         }
       } else {
         // It's not unquoted or a list, so just quote it.
-        expanded = new Cons(null, Symbol.Quote, new Cons(valRef.Location, valRef.Car, null));
+        expanded = new Cons(SourceLocation.Unknown, Symbol.Quote,
+                            new Cons(valRef.Location, valRef.Car, null));
       }
 
-      return new Cons(null, Symbol.Cons,
-                      new Cons(null, expanded, new Cons(null, ExpandQuasiquote(valRef.Cdr), null)));
+      return new Cons(SourceLocation.Unknown, Symbol.Cons,
+                      new Cons(SourceLocation.Unknown, expanded,
+                               new Cons(SourceLocation.Unknown, ExpandQuasiquote(valRef.Cdr),
+                                        null)));
     }
   }
 }

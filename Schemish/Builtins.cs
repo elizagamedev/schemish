@@ -4,15 +4,22 @@ using System.IO;
 using System.Linq;
 using Schemish.Exceptions;
 using static System.Diagnostics.Debug;
-using static Schemish.InternalUtils;
 using static Schemish.Utils;
 
 namespace Schemish {
   /// <summary>
-  /// Extend the interpreter with essential builtin functionalities.
+  /// Contains definitions for native built-in functions.
   /// </summary>
-  public class Builtins {
-    public static IDictionary<Symbol, object?> CreateBuiltins(Interpreter interpreter) {
+  internal static class Builtins {
+    /// <summary>
+    /// Creates a dictionary which contains all of the built-in functions for use in
+    /// <see cref="Environment"/>.
+    /// </summary>
+    /// <param name="interpreter">The interpreter under which the builtins will be created.</param>
+    /// <returns>
+    /// An <see cref="IDictionary{TKey,TValue}"/>for use in an <see cref="Environment"/>.
+    /// </returns>
+    internal static IDictionary<Symbol, object?> CreateBuiltins(Interpreter interpreter) {
       var procedures = new List<NativeProcedure> {
         new NativeProcedure(Symbol.Intern("+"), AddImpl),
         new NativeProcedure(Symbol.Intern("-"), SubtractImpl),
@@ -66,7 +73,7 @@ namespace Schemish {
 
         new NativeProcedure(Symbol.Intern("error"), ErrorImpl),
         new NativeProcedure(Symbol.Intern("load"), (args, stack) => LoadImpl(interpreter, args)),
-    };
+      };
 
       return procedures.ToDictionary(x => x.Identifier.AsNotNull(), x => (object?)x);
     }
@@ -350,7 +357,8 @@ namespace Schemish {
       var result = new List<object?>(count);
       for (int i = 0; i < count; i++) {
         var mapArgs = Cons.CreateFromCars(enumerators.Select(x => x.Take()));
-        result.Add(proc.Call(mapArgs, CallStack.CreateFromNative("#<procedure call>", stack)));
+        result.Add(proc.Call(mapArgs, new CallStack("#<procedure call>", SourceLocation.Native,
+                                                    stack)));
       }
       return Cons.CreateFromCars(result);
     }
@@ -406,7 +414,7 @@ namespace Schemish {
         throw SchemishException.WrongType(procObject, "procedure");
       }
       var procArgs = (Cons?)AppendImpl((Cons?)args.Cdr, stack);
-      return proc.Call(procArgs, CallStack.CreateFromNative("#<procedure apply>", stack));
+      return proc.Call(procArgs, new CallStack("#<procedure apply>", SourceLocation.Native, stack));
     }
 
     private static object? ListRefImpl(Cons? args, CallStack? stack) {
@@ -461,7 +469,7 @@ namespace Schemish {
       object? head = argsEnum.Take();
       object? tail = argsEnum.Take();
 
-      return new Cons(null, head, tail);
+      return new Cons(SourceLocation.Unknown, head, tail);
     }
 
     private static object? AppendImpl(Cons? args, CallStack? stack) {

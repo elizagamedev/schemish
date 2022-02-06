@@ -4,6 +4,9 @@ using System.Text.RegularExpressions;
 using Schemish.Exceptions;
 
 namespace Schemish {
+  /// <summary>
+  /// Scheme source parser.
+  /// </summary>
   internal class TokenParser {
     private readonly Regex _tokenizer =
         new(@"^\s*(,@|[('`,)]|""(?:[\\].|[^\\""])*""|;.*|[^\s('""`,;)]*)(.*)");
@@ -12,12 +15,21 @@ namespace Schemish {
     private string? _line;
     private SourceLocation _location;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="TokenParser"/> class.
+    /// </summary>
+    /// <param name="file">The input stream.</param>
+    /// <param name="fileName">The file name used in stack traces for this code.</param>
     public TokenParser(TextReader file, string fileName) {
       _file = file;
       _line = string.Empty;
       _location = new SourceLocation(fileName, 0, 0, string.Empty);
     }
 
+    /// <summary>
+    /// Parses and returns the next token from the stream.
+    /// </summary>
+    /// <returns>The next token.</returns>
     public Token NextToken() {
       while (true) {
         while (_line == string.Empty) {
@@ -63,6 +75,10 @@ namespace Schemish {
     }
 
     public record Token(string? String, SourceLocation Location) {
+      /// <summary>
+      /// Parses the token into a literal value type.
+      /// </summary>
+      /// <returns>The parsed value.</returns>
       public object Parse() {
         if (String is null) {
           throw new InvalidOperationException();
