@@ -1,0 +1,59 @@
+#+title: Schemish
+#+author: Eliza Velasquez
+
+Schemish is a lightweight Scheme-like interpreter for .NET applications based on
+Microsoft's [[https://github.com/Microsoft/schemy][Schemy]] but heavily modified with similar design goals:
+
+- Easy to embed in .NET applications, especially Unity.
+- Easy to extend or create a DSL via Scheme macros.
+- Safe by default.
+- Easy to debug.
+
+It specifically differs from Schemy in the following ways:
+
+- In the case of a Scheme syntax or runtime error, it throws human-readable
+  errors with full stack traces.
+- The behaviors of lists and pairs fully match the Scheme specification. That is
+  to say, you can use both lists and dotted pairs as in Scheme.
+
+See Schemy's readme for more details.
+
+* Anti-Features
+
+- Is not yet available on NuGet.
+- Is not fully compliant with the Scheme spec and probably never will be.
+- Does not have a stable API yet.
+
+* Example Usage
+
+The following program computes the sum of 3 and 2 and writes the result to
+stdout.
+
+#+begin_src csharp
+  using Schemish;
+
+  var interpreter = new Interpreter();
+  Console.WriteLine(interpreter.EvaluateString("(+ 3 2)")?.ToString() ?? "()");
+#+end_src
+
+The Repl project provides a more practical example on how to use Schemish.
+
+* Building
+
+Schemish itself is self-contained and has no dependencies, so it's very easily
+built via the dotnet SDK CLI. (The example REPL project contains a NuGet
+dependency on [[https://www.nuget.org/packages/ReadLine/][ReadLine]].)
+
+#+begin_src sh
+  # from repository root
+  dotnet publish -c Release Schemish
+#+end_src
+
+If using Schemish with Unity, you can then copy the built DLL to your project's
+Assets directory.
+
+Schemish isn't on NuGet, but you should be able to pull in Schemish and build it
+from source as a dependency through some other means. How? At the time of
+writing this, I'm honestly not sure of the best way, since my experience with C#
+is mostly limited to Unity and I have very little understanding of the .NET
+ecosystem. But the source is trivial enough that it should be pretty easy.
