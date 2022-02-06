@@ -9,7 +9,7 @@ using static Schemish.InternalUtils;
 using static Schemish.Utils;
 
 namespace Schemish {
-  public class Interpreter {
+  public sealed class Interpreter {
     private readonly Dictionary<Symbol, Procedure> _macroTable;
 
     /// <summary>
@@ -45,16 +45,34 @@ namespace Schemish {
 
     public ITextualOutputPort TextualOutputPort { get; private init; }
 
-    /// <summary>
-    /// Validates and expands the input s-expression.
-    /// </summary>
-    /// <param name="expression">expression to expand.</param>
-    /// <param name="env">env used to evaluate the macro procedures.</param>
-    /// <param name="macroTable">the macro definition table.</param>
-    /// <param name="isTopLevel">whether the current expansion is at the top level.</param>
-    /// <returns>the s-expression after validation and expansion.</returns>
-    public static object? Expand(object? expression, Environment env,
-                                 Dictionary<Symbol, Procedure> macroTable, bool isTopLevel = true) {
+    public object? EvaluateTextReader(TextReader input, string fileName) {
+      var port = new TokenParser(input, fileName);
+      object? res = Unspecified.Instance;
+      while (true) {
+        object? sexp = Read(port);
+        if (Symbol.Eof.Equals(sexp)) {
+          return res;
+        }
+        object? expanded = Expand(sexp, Environment, _macroTable, isTopLevel: true);
+        object? nextRes = Evaluate(expanded, Environment, "#<top>", SourceLocation.Unknown, null);
+        if (nextRes is not Unspecified) {
+          res = nextRes;
+        }
+      }
+    }
+
+    public object? EvaluateString(string input, string fileName) {
+      return EvaluateTextReader(new StreamReader(new MemoryStream(Encoding.UTF8.GetBytes(input))),
+                                fileName);
+    }
+
+    public void DefineGlobal(Symbol sym, object val) {
+      Environment[sym] = val;
+    }
+
+    internal static object? Expand(object? expression, Environment env,
+                                   Dictionary<Symbol, Procedure> macroTable,
+                                   bool isTopLevel = true) {
       if (expression is null) {
         throw new SyntaxErrorException("Unexpected empty list.");
       }
@@ -169,12 +187,17 @@ namespace Schemish {
                 throw new SyntaxErrorException("Must define macros at the top level.",
                                                appliedRef.Location);
               }
-              if (expandedValue is null || Evaluate(expandedValue, env, new List<SourceLocation>())
-                                               is not Procedure proc) {
+              if (expandedValue is null
+                  || Evaluate(expandedValue, env,
+                              "#<top>",
+                              valueRef.Location,
+                              new CallStack("#<top>", appliedRef.Location, null))
+                  is not Procedure proc) {
                 throw new SyntaxErrorException("Macro body must be a procedure.",
                                                appliedRef.Location);
               }
-              macroTable[name] = proc;
+              macroTable[name] = new Procedure(name, proc.Parameters, proc.Body, proc.Env,
+                                               proc.Location);
               return Unspecified.Instance;
             }
 
@@ -231,7 +254,8 @@ namespace Schemish {
                                    new Cons(body.Location, expandedBody, null)));
         } else if (applied is Symbol identifier &&
                    macroTable.TryGetValue(identifier, out var procedure)) {
-          object? result = procedure.Call(args, new List<SourceLocation>());
+          object? result = procedure.Call(
+              args, new CallStack("#<top>", appliedRef.Location, null));
           return Expand(result, env, macroTable, isTopLevel);
         } else {
           var newExpr = Cons.CreateFromFloating(
@@ -246,28 +270,32 @@ namespace Schemish {
           return newExpr;
         }
       } catch (SchemishException e) {
-        throw new SyntaxErrorException("Error during expansion.", e, appliedRef.Location);
+        throw new SyntaxErrorException("Error while expanding.", e, appliedRef.Location);
       }
     }
 
-    /// <summary>
-    /// Evaluates an s-expression.
-    /// </summary>
-    /// <param name="expr">expression to be evaluated.</param>
-    /// <param name="env">the environment in which the expression is evaluated.</param>
-    /// <param name="stack">The call stack. This may be modified by this function.</param>
-    /// <returns>the result of the evaluation.</returns>
-    public static object? Evaluate(object? expr, Environment env, List<SourceLocation> stack) {
+    internal static object? Evaluate(object? expr, Environment env, string procedureName,
+                                     SourceLocation exprLocation, CallStack? stack) {
       while (true) {
         if (expr is Symbol symbol) {
-          return env[symbol];
+          if (env.TryGetValue(symbol, out object? val)) {
+            return val;
+          } else {
+            throw new RuntimeErrorException(
+                $"Variable `{symbol}' not defined.",
+                new CallStack(procedureName, exprLocation, stack));
+          }
         }
         if (expr is not Cons appliedRef) {
           return expr;  // is a constant
         }
+
+        var newStack = new CallStack(procedureName,
+                                     appliedRef.Location,
+                                     stack);
         if (!appliedRef.IsList) {
-          stack.Add(appliedRef.Location ?? SourceLocation.Unknown);
-          throw new RuntimeErrorException("Attempted to evaluate a pair which was not a list.", stack);
+          throw new RuntimeErrorException("Attempted to evaluate a pair which was not a list.",
+                                          newStack);
         }
 
         object? applied = appliedRef.Car;
@@ -279,35 +307,43 @@ namespace Schemish {
           } else if (Symbol.If.Equals(applied)) {
             Assert(args is not null && args.Count == 3,
                    $"Bad if form during eval. {PrintExpr(expr)}");
-            var argsEnum = args.AsCars().GetEnumerator();
-            object? test = argsEnum.Take();
-            object? conseq = argsEnum.Take();
-            object? alt = argsEnum.Take();
-            object? testResult = EnsureIsSpecified(Evaluate(test, env,
-                                                            new List<SourceLocation>(stack)));
-            expr = ConvertToBool(testResult) ? conseq : alt;
+            var argsRefEnum = args.AsCons().GetEnumerator();
+            var testRef = argsRefEnum.Take();
+            var conseqRef = argsRefEnum.Take();
+            var altRef = argsRefEnum.Take();
+            object? testResult = EnsureIsSpecified(Evaluate(testRef.Car, env, procedureName,
+                                                            testRef.Location, stack));
+            var newExprRef = ConvertToBool(testResult) ? conseqRef : altRef;
+            expr = newExprRef.Car;
+            exprLocation = newExprRef.Location;
           } else if (Symbol.Define.Equals(applied)) {
             Assert(args is not null && args.Count == 2,
                    $"Bad define form during eval. {PrintExpr(expr)}");
-            var argsEnum = args.AsCars().GetEnumerator();
-            var variable = (Symbol)argsEnum.Take().AsNotNull();
-            object? val = argsEnum.Take();
-            object? result = EnsureIsSpecified(Evaluate(val, env, new List<SourceLocation>(stack)));
-            env[variable] = result;
+            var argsRefEnum = args.AsCons().GetEnumerator();
+            var variable = (Symbol)argsRefEnum.Take().Car.AsNotNull();
+            var valRef = argsRefEnum.Take();
+            object? result = EnsureIsSpecified(Evaluate(valRef.Car, env, procedureName,
+                                                        valRef.Location, stack));
+            if (result is Procedure proc) {
+              env[variable] = new Procedure(variable, proc.Parameters, proc.Body, proc.Env,
+                                            proc.Location);
+            } else {
+              env[variable] = result;
+            }
             return Unspecified.Instance;
           } else if (Symbol.Set.Equals(applied)) {
             Assert(args is not null && args.Count == 2,
                    $"Bad set! form during eval. {PrintExpr(expr)}");
-            var argsEnum = args.AsCars().GetEnumerator();
-            var name = (Symbol)argsEnum.Take().AsNotNull();
-            object? val = argsEnum.Take();
+            var argsRefEnum = args.AsCons().GetEnumerator();
+            var name = (Symbol)argsRefEnum.Take().Car.AsNotNull();
+            var valRef = argsRefEnum.Take();
             var containingEnv = env.TryFindContainingEnv(name);
             if (containingEnv is null) {
-              stack.Add(appliedRef.Location ?? SourceLocation.Unknown);
               throw new RuntimeErrorException(
-                  $"Symbol {name} not defined in containing environment.", stack);
+                  $"Symbol {name} not defined in containing environment.", newStack);
             }
-            object? result = EnsureIsSpecified(Evaluate(val, env, new List<SourceLocation>(stack)));
+            object? result = EnsureIsSpecified(Evaluate(valRef.Car, env, procedureName,
+                                                        valRef.Location, stack));
             containingEnv[name] = result;
             return Unspecified.Instance;
           } else if (Symbol.Lambda.Equals(applied)) {
@@ -318,77 +354,50 @@ namespace Schemish {
             Assert(lambdaArgs is Symbol or Cons or null,
                    $"Bad lambda form during eval. {PrintExpr(expr)}");
             object? lambdaBody = argsEnum.Take();
-            return new Procedure(lambdaArgs, lambdaBody, env, appliedRef.Location);
+            return new Procedure(null, lambdaArgs, lambdaBody, env, appliedRef.Location);
           } else if (Symbol.Begin.Equals(applied)) {
             Assert(args is not null,
                    $"Bad begin form during eval. {PrintExpr(expr)}");
             var child = args;
             while (child.Cdr is not null) {
-              Evaluate(child.Car, env, new List<SourceLocation>(stack));
+              Evaluate(child.Car, env, procedureName, child.Location, stack);
               child = (Cons)child.Cdr;
             }
             expr = child.Car;
+            exprLocation = child.Location;
           } else {
             // A procedure call.
-            object? rawProc = EnsureIsProc(Evaluate(applied, env, new List<SourceLocation>(stack)));
+            object? rawProc = EnsureIsProc(Evaluate(applied, env, procedureName,
+                                                    appliedRef.Location, stack));
 
             var procArgs = Cons.CreateFromCars(
                 args
-                .AsCars()
-                .Select(arg => EnsureIsSpecified(Evaluate(arg, env,
-                                                          new List<SourceLocation>(stack)))));
+                .AsCons()
+                .Select(argRef => EnsureIsSpecified(Evaluate(argRef.Car, env, procedureName,
+                                                             argRef.Location, stack))));
 
-            if (appliedRef.Location is not null) {
-              stack.Add(appliedRef.Location);
-            }
             if (rawProc is Procedure proc) {
               // Tail call optimization - instead of evaluating the procedure here which grows the
               // stack by calling Evaluate, we update the `expr` and `env` to be the body
               // and the (params, args), and loop the evaluation from here.
               expr = proc.Body;
+              exprLocation = proc.Location;
               env = Environment.FromVariablesAndValues(proc.Parameters, procArgs, proc.Env);
+              procedureName = proc.ToString();
+              stack = newStack;
             } else if (rawProc is NativeProcedure nativeProc) {
               // Don't copy the stack here, since native procs add themselves to the stack. It's
               // safe to do so, since we return from the function here rather than looping.
-              return nativeProc.Call(procArgs, stack);
+              return nativeProc.Call(procArgs, newStack);
             } else {
               throw new InvalidOperationException(
                   $"Unexpected implementation of ICallable: {rawProc.GetType().Name}");
             }
           }
         } catch (SchemishException e) {
-          // TODO: Adding the applied ref to the stack may not be correct in all cases.
-          if (appliedRef.Location is not null) {
-            stack.Add(appliedRef.Location);
-          }
-          throw new RuntimeErrorException($"Error during evaluation: {e.Message}", e, stack);
+          throw new RuntimeErrorException($"Error during evaluation: {e.Message}", e, newStack);
         }
       }
-    }
-
-    public object? EvaluateTextReader(TextReader input, string fileName) {
-      var port = new TokenParser(input, fileName);
-      object? res = Unspecified.Instance;
-      while (true) {
-        object? sexp = Read(port);
-        if (Symbol.Eof.Equals(sexp)) {
-          return res;
-        }
-        object? expanded = Expand(sexp, Environment, _macroTable, isTopLevel: true);
-        object? nextRes = Evaluate(expanded, Environment, new List<SourceLocation>());
-        if (nextRes is not Unspecified) {
-          res = nextRes;
-        }
-      }
-    }
-
-    public object? EvaluateString(string input, string fileName) {
-      return EvaluateTextReader(new StreamReader(new MemoryStream(Encoding.UTF8.GetBytes(input))),
-                                fileName);
-    }
-
-    public void DefineGlobal(Symbol sym, object val) {
-      Environment[sym] = val;
     }
 
     /// <summary>
@@ -399,40 +408,41 @@ namespace Schemish {
       if (token.String is null) {
         return Symbol.Eof;
       }
-      return ReadNext(port, token);
-    }
 
-    private static object? ReadNext(TokenParser port, TokenParser.Token token) {
-      if (token.String is null) {
-        throw new SyntaxErrorException("unexpected EOF", token.Location);
-      }
-
-      if (token.String == "(") {
-        var list = new List<Cons.Floating>();
-        while (true) {
-          var nextToken = port.NextToken();
-          if (nextToken.String == ")") {
-            return Cons.CreateFromFloating(list);
-          } else if (nextToken.String == ".") {
-            object? tail = ReadNext(port, port.NextToken());
-            var endToken = port.NextToken();
-            if (endToken.String != ")") {
-              throw new SyntaxErrorException("expected ) after dotted pair", token.Location);
-            }
-            return Cons.CreateFromFloating(list, tail);
-          } else {
-            list.Add(new Cons.Floating(nextToken.Location, ReadNext(port, nextToken)));
-          }
+      static object? ReadNext(TokenParser port, TokenParser.Token token) {
+        if (token.String is null) {
+          throw new SyntaxErrorException("unexpected EOF", token.Location);
         }
-      } else if (token.String == ")") {
-        throw new SyntaxErrorException("unexpected )", token.Location);
-      } else if (Symbol.QuotesMap.TryGetValue(token.String, out var quote)) {
-        var nextToken = port.NextToken();
-        object? quoted = ReadNext(port, nextToken);
-        return new Cons(token.Location, quote, new Cons(nextToken.Location, quoted, null));
-      } else {
-        return token.Parse();
+
+        if (token.String == "(") {
+          var list = new List<Cons.Floating>();
+          while (true) {
+            var nextToken = port.NextToken();
+            if (nextToken.String == ")") {
+              return Cons.CreateFromFloating(list);
+            } else if (nextToken.String == ".") {
+              object? tail = ReadNext(port, port.NextToken());
+              var endToken = port.NextToken();
+              if (endToken.String != ")") {
+                throw new SyntaxErrorException("expected ) after dotted pair", token.Location);
+              }
+              return Cons.CreateFromFloating(list, tail);
+            } else {
+              list.Add(new Cons.Floating(nextToken.Location, ReadNext(port, nextToken)));
+            }
+          }
+        } else if (token.String == ")") {
+          throw new SyntaxErrorException("unexpected )", token.Location);
+        } else if (Symbol.QuotesMap.TryGetValue(token.String, out var quote)) {
+          var nextToken = port.NextToken();
+          object? quoted = ReadNext(port, nextToken);
+          return new Cons(token.Location, quote, new Cons(nextToken.Location, quoted, null));
+        } else {
+          return token.Parse();
+        }
       }
+
+      return ReadNext(port, token);
     }
 
     private static object? ExpandQuasiquote(object? cdr) {

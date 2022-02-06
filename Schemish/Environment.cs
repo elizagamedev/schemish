@@ -7,7 +7,7 @@ namespace Schemish {
   /// <summary>
   /// Tracks the state of an interpreter or a procedure. It supports lexical scoping.
   /// </summary>
-  public class Environment {
+  public sealed class Environment {
     private readonly IDictionary<Symbol, object?> _store;
 
     /// <summary>
@@ -21,14 +21,7 @@ namespace Schemish {
     }
 
     public object? this[Symbol sym] {
-      get {
-        if (TryGetValue(sym, out object? val)) {
-          return val;
-        } else {
-          throw new SchemishException($"Symbol not defined: {sym}.");
-        }
-      }
-
+      get => _store[sym];
       set => _store[sym] = value;
     }
 

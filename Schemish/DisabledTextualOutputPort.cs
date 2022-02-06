@@ -1,5 +1,5 @@
 namespace Schemish {
-  public class DisabledTextualOutputPort : ITextualOutputPort {
+  public sealed class DisabledTextualOutputPort : ITextualOutputPort {
     public void Display(string text) { }
 
     public void Newline() { }

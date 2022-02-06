@@ -1,31 +1,37 @@
 using System;
-using System.Collections.Generic;
+using Schemish.Exceptions;
 
 namespace Schemish {
   /// <summary>
   /// A procedure implemented in .NET.
   /// </summary>
   /// <seealso cref="ICallable" />
-  public class NativeProcedure : ICallable {
-    private readonly Func<Cons?, List<SourceLocation>, object?> _func;
+  public sealed class NativeProcedure : ICallable {
+    private readonly Func<Cons?, CallStack?, object?> _func;
 
-    public NativeProcedure(Symbol identifier,
-                           Func<Cons?, List<SourceLocation>, object?> func) {
+    public NativeProcedure(Symbol? identifier,
+                           Func<Cons?, CallStack?, object?> func) {
       Identifier = identifier;
       _func = func;
     }
 
     public Symbol? Identifier { get; private init; }
 
-    public object? Call(Cons? args, List<SourceLocation> stack) {
-      // Add self to location since won't get the chance to in the proc method.
-      stack.Add(new SourceLocation(ToString(), 0, 0, "<native>"));
-      return _func(args, stack);
+    public object? Call(Cons? args, CallStack? stack) {
+      try {
+        return _func(args, stack);
+      } catch (Exception e) {
+        throw new RuntimeErrorException($"Exception during native call. {e.Message}", e,
+                                        stack);
+      }
     }
 
     public override string ToString() {
-      string id = Identifier?.ToString() ?? "noname";
-      return $"#<NativeProcedure:{id}>";
+      if (Identifier is null) {
+        return $"#<unknown native procedure>";
+      } else {
+        return $"#<procedure {Identifier}>";
+      }
     }
   }
 }

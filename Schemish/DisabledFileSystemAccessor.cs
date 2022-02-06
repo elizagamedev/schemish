@@ -8,7 +8,7 @@ namespace Schemish {
   /// <remarks>
   /// This is the default behavior for an interpreter.
   /// </remarks>
-  public class DisabledFileSystemAccessor : IFileSystemAccessor {
+  public sealed class DisabledFileSystemAccessor : IFileSystemAccessor {
     public Stream OpenRead(string path) {
       throw new InvalidOperationException(
           "File system access is blocked by DisabledFileSystemAccessor");

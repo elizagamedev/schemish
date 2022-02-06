@@ -9,11 +9,11 @@ using static Schemish.Utils;
 #pragma warning disable CA1710
 
 namespace Schemish {
-  public class Cons : IEnumerable, IEnumerable<object?>, IEquatable<Cons> {
+  public sealed class Cons : IEnumerable, IEnumerable<object?>, IEquatable<Cons> {
     private readonly int _hashCode;
 
     public Cons(SourceLocation? location, object? car, object? cdr) {
-      Location = location;
+      Location = location ?? SourceLocation.Unknown;
       Car = car;
       Cdr = cdr;
       if (cdr is Cons cons) {
@@ -26,7 +26,7 @@ namespace Schemish {
       _hashCode = HashCode.Combine(car, cdr);
     }
 
-    public SourceLocation? Location { get; private init; }
+    public SourceLocation Location { get; private init; }
 
     public object? Car { get; private init; }
 
@@ -134,6 +134,6 @@ namespace Schemish {
       return builder.ToString();
     }
 
-    public record Floating(SourceLocation? Location, object? Car);
+    public sealed record Floating(SourceLocation? Location, object? Car);
   }
 }

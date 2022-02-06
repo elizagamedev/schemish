@@ -1,7 +1,7 @@
 using System;
 
 namespace Schemish.Exceptions {
-  public class SyntaxErrorException : Exception {
+  public sealed class SyntaxErrorException : Exception {
     public SyntaxErrorException() { }
 
     public SyntaxErrorException(string message)

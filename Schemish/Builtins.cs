@@ -71,7 +71,7 @@ namespace Schemish {
       return procedures.ToDictionary(x => x.Identifier.AsNotNull(), x => (object?)x);
     }
 
-    private static object? AddImpl(Cons? args, List<SourceLocation> stack) {
+    private static object? AddImpl(Cons? args, CallStack? stack) {
       bool isInt = true;
       double total = 0.0;
       foreach (object? car in args.AsCars()) {
@@ -93,7 +93,7 @@ namespace Schemish {
       return total;
     }
 
-    private static object? SubtractImpl(Cons? args, List<SourceLocation> stack) {
+    private static object? SubtractImpl(Cons? args, CallStack? stack) {
       if (args is null) {
         throw SchemishException.IncorrectArity(0, "at least 2");
       }
@@ -142,7 +142,7 @@ namespace Schemish {
       return total;
     }
 
-    private static object? MultiplyImpl(Cons? args, List<SourceLocation> stack) {
+    private static object? MultiplyImpl(Cons? args, CallStack? stack) {
       bool isInt = true;
       double total = 1.0;
       foreach (object? car in args.AsCars()) {
@@ -164,7 +164,7 @@ namespace Schemish {
       return total;
     }
 
-    private static object? DivideImpl(Cons? args, List<SourceLocation> stack) {
+    private static object? DivideImpl(Cons? args, CallStack? stack) {
       if (args is null) {
         throw SchemishException.IncorrectArity(0, "at least 2");
       }
@@ -193,7 +193,7 @@ namespace Schemish {
       return total;
     }
 
-    private static object? NumEqImpl(Cons? args, List<SourceLocation> stack) {
+    private static object? NumEqImpl(Cons? args, CallStack? stack) {
       if (args is null || args.Count == 1) {
         return true;
       }
@@ -202,7 +202,7 @@ namespace Schemish {
       return args.AsCars().Skip(1).All(x => ConvertToDouble(x) == target);
     }
 
-    private static object? NumLtImpl(Cons? args, List<SourceLocation> stack) {
+    private static object? NumLtImpl(Cons? args, CallStack? stack) {
       if (args is null || args.Count == 1) {
         return true;
       }
@@ -220,7 +220,7 @@ namespace Schemish {
       return true;
     }
 
-    private static object? NumLeImpl(Cons? args, List<SourceLocation> stack) {
+    private static object? NumLeImpl(Cons? args, CallStack? stack) {
       if (args is null || args.Count == 1) {
         return true;
       }
@@ -238,7 +238,7 @@ namespace Schemish {
       return true;
     }
 
-    private static object? NumGtImpl(Cons? args, List<SourceLocation> stack) {
+    private static object? NumGtImpl(Cons? args, CallStack? stack) {
       if (args is null || args.Count == 1) {
         return true;
       }
@@ -256,7 +256,7 @@ namespace Schemish {
       return true;
     }
 
-    private static object? NumGeImpl(Cons? args, List<SourceLocation> stack) {
+    private static object? NumGeImpl(Cons? args, CallStack? stack) {
       if (args is null || args.Count == 1) {
         return true;
       }
@@ -274,7 +274,7 @@ namespace Schemish {
       return true;
     }
 
-    private static object? EqPImpl(Cons? args, List<SourceLocation> stack) {
+    private static object? EqPImpl(Cons? args, CallStack? stack) {
       if (args is null || args.Count == 1) {
         return true;
       }
@@ -283,7 +283,7 @@ namespace Schemish {
       return cars.Skip(1).All(x => ReferenceEquals(first, x));
     }
 
-    private static object? EqualPImpl(Cons? args, List<SourceLocation> stack) {
+    private static object? EqualPImpl(Cons? args, CallStack? stack) {
       if (args is null || args.Count == 1) {
         return true;
       }
@@ -292,7 +292,7 @@ namespace Schemish {
       return cars.Skip(1).All(x => Equals(first, x));
     }
 
-    private static object? NotImpl(Cons? args, List<SourceLocation> stack) {
+    private static object? NotImpl(Cons? args, CallStack? stack) {
       if (args is null || args.Count != 1) {
         throw SchemishException.IncorrectArity(args?.Count ?? 0, "1");
       }
@@ -306,7 +306,7 @@ namespace Schemish {
       return args.Car is T;
     }
 
-    private static object? ListPImpl(Cons? args, List<SourceLocation> stack) {
+    private static object? ListPImpl(Cons? args, CallStack? stack) {
       if (args is null || args.Count != 1) {
         throw SchemishException.IncorrectArity(args?.Count ?? 0, "1");
       }
@@ -319,14 +319,14 @@ namespace Schemish {
       return false;
     }
 
-    private static object? NullPImpl(Cons? args, List<SourceLocation> stack) {
+    private static object? NullPImpl(Cons? args, CallStack? stack) {
       if (args is null || args.Count != 1) {
         throw SchemishException.IncorrectArity(args?.Count ?? 0, "1");
       }
       return args.Car is null;
     }
 
-    private static object? MapImpl(Cons? args, List<SourceLocation> stack) {
+    private static object? MapImpl(Cons? args, CallStack? stack) {
       if (args is null || args.Count < 2) {
         throw SchemishException.IncorrectArity(args?.Count ?? 0, "at least 2");
       }
@@ -350,12 +350,12 @@ namespace Schemish {
       var result = new List<object?>(count);
       for (int i = 0; i < count; i++) {
         var mapArgs = Cons.CreateFromCars(enumerators.Select(x => x.Take()));
-        result.Add(proc.Call(mapArgs, stack));
+        result.Add(proc.Call(mapArgs, CallStack.CreateFromNative("#<procedure call>", stack)));
       }
       return Cons.CreateFromCars(result);
     }
 
-    private static object? RangeImpl(Cons? args, List<SourceLocation> stack) {
+    private static object? RangeImpl(Cons? args, CallStack? stack) {
       if (args is null || args.Count is < 1 or > 3) {
         throw SchemishException.IncorrectArity(args?.Count ?? 0, "1 to 3");
       }
@@ -396,7 +396,7 @@ namespace Schemish {
       return Cons.CreateFromCars(res);
     }
 
-    private static object? ApplyImpl(Cons? args, List<SourceLocation> stack) {
+    private static object? ApplyImpl(Cons? args, CallStack? stack) {
       if (args is null || args.Count < 2) {
         throw SchemishException.IncorrectArity(args?.Count ?? 0, "at least 2");
       }
@@ -406,10 +406,10 @@ namespace Schemish {
         throw SchemishException.WrongType(procObject, "procedure");
       }
       var procArgs = (Cons?)AppendImpl((Cons?)args.Cdr, stack);
-      return proc.Call(procArgs, stack);
+      return proc.Call(procArgs, CallStack.CreateFromNative("#<procedure apply>", stack));
     }
 
-    private static object? ListRefImpl(Cons? args, List<SourceLocation> stack) {
+    private static object? ListRefImpl(Cons? args, CallStack? stack) {
       if (args is null || args.Count != 2) {
         throw SchemishException.IncorrectArity(args?.Count ?? 0, "2");
       }
@@ -427,7 +427,7 @@ namespace Schemish {
       return list.AsCars().ElementAt(index);
     }
 
-    private static object? LengthImpl(Cons? args, List<SourceLocation> stack) {
+    private static object? LengthImpl(Cons? args, CallStack? stack) {
       if (args is null || args.Count != 1) {
         throw SchemishException.IncorrectArity(args?.Count ?? 0, "1");
       }
@@ -435,7 +435,7 @@ namespace Schemish {
       return EnsureIsList(args.Car)?.Count ?? 0;
     }
 
-    private static object? CarImpl(Cons? args, List<SourceLocation> stack) {
+    private static object? CarImpl(Cons? args, CallStack? stack) {
       if (args is null || args.Count != 1) {
         throw SchemishException.IncorrectArity(args?.Count ?? 0, "1");
       }
@@ -443,7 +443,7 @@ namespace Schemish {
       return EnsureIsPair(args.Car).Car;
     }
 
-    private static object? CdrImpl(Cons? args, List<SourceLocation> stack) {
+    private static object? CdrImpl(Cons? args, CallStack? stack) {
       if (args is null || args.Count != 1) {
         throw SchemishException.IncorrectArity(args?.Count ?? 0, "1");
       }
@@ -451,7 +451,7 @@ namespace Schemish {
       return EnsureIsPair(args.Car).Cdr;
     }
 
-    private static object? ConsImpl(Cons? args, List<SourceLocation> stack) {
+    private static object? ConsImpl(Cons? args, CallStack? stack) {
       if (args is null || args.Count != 2) {
         throw SchemishException.IncorrectArity(args?.Count ?? 0, "2");
       }
@@ -464,7 +464,7 @@ namespace Schemish {
       return new Cons(null, head, tail);
     }
 
-    private static object? AppendImpl(Cons? args, List<SourceLocation> stack) {
+    private static object? AppendImpl(Cons? args, CallStack? stack) {
       if (args is null) {
         return null;
       }
@@ -486,7 +486,7 @@ namespace Schemish {
       return head;
     }
 
-    private static object? ReverseImpl(Cons? args, List<SourceLocation> stack) {
+    private static object? ReverseImpl(Cons? args, CallStack? stack) {
       if (args is null || args.Count != 1) {
         throw SchemishException.IncorrectArity(args?.Count ?? 0, "1");
       }
@@ -494,7 +494,7 @@ namespace Schemish {
       return Cons.CreateFromCars(EnsureIsList(args.Car).AsCars().Reverse());
     }
 
-    private static object? StringLengthImpl(Cons? args, List<SourceLocation> stack) {
+    private static object? StringLengthImpl(Cons? args, CallStack? stack) {
       if (args is null || args.Count != 1) {
         throw SchemishException.IncorrectArity(args?.Count ?? 0, "1");
       }
@@ -503,11 +503,11 @@ namespace Schemish {
       return str.Length;
     }
 
-    private static object? StringAppendImpl(Cons? args, List<SourceLocation> stack) {
+    private static object? StringAppendImpl(Cons? args, CallStack? stack) {
       return string.Join(string.Empty, args.AsCars().Select(x => EnsureIsString(x)));
     }
 
-    private static object? StringToNumberImpl(Cons? args, List<SourceLocation> stack) {
+    private static object? StringToNumberImpl(Cons? args, CallStack? stack) {
       if (args is null || args.Count is not 1 and not 2) {
         throw SchemishException.IncorrectArity(args?.Count ?? 0, "1 or 2");
       }
@@ -523,7 +523,7 @@ namespace Schemish {
       return Convert.ToInt32(str, radix);
     }
 
-    private static object? NumberToStringImpl(Cons? args, List<SourceLocation> stack) {
+    private static object? NumberToStringImpl(Cons? args, CallStack? stack) {
       if (args is null || args.Count is not 1 and not 2) {
         throw SchemishException.IncorrectArity(args?.Count ?? 0, "1 or 2");
       }
@@ -570,7 +570,7 @@ namespace Schemish {
       return Unspecified.Instance;
     }
 
-    private static object? ErrorImpl(Cons? args, List<SourceLocation> stack) {
+    private static object? ErrorImpl(Cons? args, CallStack? stack) {
       if (args is null) {
         throw SchemishException.IncorrectArity(args?.Count ?? 0, "at least 1");
       }

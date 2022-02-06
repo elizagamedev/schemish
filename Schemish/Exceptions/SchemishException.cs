@@ -2,7 +2,7 @@ using System;
 using static Schemish.Utils;
 
 namespace Schemish.Exceptions {
-  public class SchemishException : Exception {
+  public sealed class SchemishException : Exception {
     public SchemishException() { }
 
     public SchemishException(string message)

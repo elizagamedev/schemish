@@ -6,7 +6,7 @@ namespace Schemish {
   /// An implementation of <see cref="IFileSystemAccessor"/> that grants readonly access
   /// to the host file system.
   /// </summary>
-  public class ReadOnlyFileSystemAccessor : IFileSystemAccessor {
+  public sealed class ReadOnlyFileSystemAccessor : IFileSystemAccessor {
     public Stream OpenRead(string path) {
       return File.OpenRead(path);
     }

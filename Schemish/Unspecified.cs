@@ -1,5 +1,5 @@
 namespace Schemish {
-  public class Unspecified {
+  public sealed class Unspecified {
     public static readonly Unspecified Instance = new();
 
     private Unspecified() { }

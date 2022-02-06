@@ -1,4 +1,5 @@
 using Schemish;
+using Schemish.Exceptions;
 using static Schemish.Utils;
 
 var interpreter = new Interpreter(
@@ -16,8 +17,12 @@ while (true) {
   if (input == ",quit") {
     break;
   }
-  object? eval = interpreter.EvaluateString(input, "<stdin>");
-  if (eval is not Unspecified) {
-    Console.WriteLine(PrintExpr(eval));
+  try {
+    object? eval = interpreter.EvaluateString(input, "<stdin>");
+    if (eval is not Unspecified) {
+      Console.WriteLine(PrintExpr(eval));
+    }
+  } catch (Exception e) when (e is RuntimeErrorException or SyntaxErrorException) {
+    Console.Error.WriteLine(e.Message);
   }
 }
